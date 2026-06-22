@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emissão de NFTS por Lote - Validador & Conversor</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SheetJS (XLSX) for Excel Generation and Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation & Company Info -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon">
+                    <i data-lucide="file-spreadsheet"></i>
+                </div>
+                <div>
+                    <h1>NFTS Lote</h1>
+                    <span>Painel de Emissão</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3><i data-lucide="building-2"></i> Prestador de Serviços</h3>
+                
+                <div class="provider-selector-group">
+                    <label>Selecionar Empresa</label>
+                    <div class="custom-select-container">
+                        <div class="custom-select-trigger" id="provider-select-trigger">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input type="text" id="provider-search-input" placeholder="Buscar por CNPJ ou Nome..." autocomplete="off">
+                            <button type="button" class="btn-clear-selection" id="btn-clear-provider-select" style="display: none;" title="Nova Empresa / Limpar Seleção">
+                                <i data-lucide="plus-circle"></i>
+                            </button>
+                            <button type="button" class="btn-delete-selection" id="btn-delete-provider" style="display: none;" title="Excluir Empresa">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </div>
+                        <div class="custom-select-dropdown" id="provider-select-dropdown">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <form id="provider-form" class="provider-form">
+                    <div class="form-group">
+                        <label for="provider-cnpj">CNPJ do Prestador</label>
+                        <input type="text" id="provider-cnpj" placeholder="00.000.000/0000-00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="provider-name">Razão Social</label>
+                        <input type="text" id="provider-name" placeholder="Empresa Prestadora Ltda" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="provider-im">Inscrição Municipal</label>
+                        <input type="text" id="provider-im" placeholder="1.234.567-8" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Regime Tributário</label>
+                        <div class="regime-segmented-control" id="provider-regime-group">
+                            <button type="button" class="regime-btn active" data-regime="simples">Simples Nac.</button>
+                            <button type="button" class="regime-btn" data-regime="presumido">Presumido</button>
+                            <button type="button" class="regime-btn" data-regime="real">Real</button>
+                        </div>
+                        <input type="hidden" id="provider-regime" value="simples">
+                    </div>
+                    <div class="form-group">
+                        <label for="provider-service-code">Código de Serviço Padrão</label>
+                        <input type="text" id="provider-service-code" placeholder="Ex: 07930 ou 14.01" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="provider-uf">Estado (UF)</label>
+                            <input type="text" id="provider-uf" placeholder="SP" max-length="2" required>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="provider-city">Município</label>
+                            <input type="text" id="provider-city" placeholder="São Paulo" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-secondary w-100">
+                        <i data-lucide="save"></i> Salvar Dados
+                    </button>
+                </form>
+            </div>
+
+            <div class="sidebar-footer">
+                <p>Versão do Layout: <strong>2.0</strong></p>
+                <p>Status: <span class="status-badge status-online">Online</span></p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h2>Emissão de NFTS por Lote</h2>
+                    <p>Envie, valide e processe arquivos contendo NFTS emitidas em determinado período.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary-outline" id="download-template-btn">
+                        <i data-lucide="download"></i> Baixar Modelo Excel
+                    </button>
+                </div>
+            </header>
+
+            <!-- Warning Notice (similar to the screenshot but redesigned to be premium) -->
+            <div class="alert-box alert-warning">
+                <div class="alert-icon">
+                    <i data-lucide="alert-triangle"></i>
+                </div>
+                <div class="alert-body">
+                    <strong>Aviso de Layout:</strong> A emissão de NFTS por conversão de RPS em lote no formato texto (txt) fica mantida para emissões sem os campos adicionados de CBS e IBS (layout 1). Emissões de NFTS com campos de CBS e IBS (layout 2) precisam ser emitidas por emissão Online.
+                </div>
+            </div>
+
+            <!-- Upload Area & Quick Stats -->
+            <section class="dashboard-grid">
+                <!-- Upload Box -->
+                <div class="card upload-card">
+                    <div class="card-header">
+                        <h3><i data-lucide="upload-cloud"></i> Envio do Arquivo</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="dropzone" id="dropzone">
+                            <input type="file" id="file-input" accept=".xlsx, .xls, .csv" style="display: none;">
+                            <div class="dropzone-content">
+                                <div class="upload-icon-wrapper">
+                                    <i data-lucide="file-up"></i>
+                                </div>
+                                <h4>Arraste e solte sua planilha Excel aqui</h4>
+                                <p>ou clique para selecionar um arquivo do seu computador</p>
+                                <span class="file-limits">Aceita apenas .xlsx, .xls ou .csv de modelo de lote</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Summary Statistics -->
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h3><i data-lucide="bar-chart-3"></i> Resumo do Lote</h3>
+                    </div>
+                    <div class="card-body stats-summary">
+                        <div class="stat-item">
+                            <span class="stat-label">Total de Notas</span>
+                            <span class="stat-value" id="stat-total-notes">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Valor Total do Lote</span>
+                            <span class="stat-value text-primary" id="stat-total-value">R$ 0,00</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Total ISS Retido</span>
+                            <span class="stat-value text-danger" id="stat-total-iss">R$ 0,00</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Status do Lote</span>
+                            <span class="stat-status-badge status-empty" id="stat-status">Nenhum arquivo enviado</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Error Alerts Panel (Hidden by default, shown if validation errors exist) -->
+            <section class="card validation-errors-card" id="errors-panel" style="display: none;">
+                <div class="card-header border-danger">
+                    <h3 class="text-danger"><i data-lucide="x-circle"></i> Inconsistências Detectadas (<span id="error-count">0</span>)</h3>
+                </div>
+                <div class="card-body">
+                    <ul class="error-list" id="error-list">
+                        <!-- Errors will be populated here -->
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Table Section -->
+            <section class="card table-card">
+                <div class="card-header table-header-flex">
+                    <div class="table-header-title">
+                        <h3><i data-lucide="list"></i> Itens do Lote</h3>
+                        <span class="badge" id="table-row-count">0 notas</span>
+                    </div>
+                    <div class="table-actions">
+                        <button class="btn btn-secondary-outline btn-sm" id="clear-data-btn" disabled>
+                            <i data-lucide="trash-2"></i> Limpar
+                        </button>
+                        <button class="btn btn-success btn-sm" id="generate-txt-btn" disabled>
+                            <i data-lucide="file-output"></i> Exportar TXT (Layout Lote)
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0 table-responsive">
+                    <table class="data-table" id="data-table">
+                        <thead>
+                            <tr>
+                                <th>Linha</th>
+                                <th>Tomador (CNPJ/CPF)</th>
+                                <th>Razão Social</th>
+                                <th>Data Emissão</th>
+                                <th>Cód. Serviço</th>
+                                <th>Valor Serviço</th>
+                                <th>Alíquota %</th>
+                                <th>ISS Retido</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <tr>
+                                <td colspan="9" class="empty-table">
+                                    <div class="empty-state">
+                                        <i data-lucide="inbox"></i>
+                                        <p>Nenhuma nota importada. Baixe o modelo e faça o upload para visualizar os dados aqui.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <i data-lucide="check-circle" class="toast-icon"></i>
+        <span class="toast-message">Ação realizada com sucesso!</span>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
